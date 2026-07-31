@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: aquasense_postgres
+    environment:
+      POSTGRES_DB: aquasense_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:7-alpine
+    container_name: aquasense_redis
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: aquasense_backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/aquasense_db
+      REDIS_URL: redis://redis:6379/0
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: aquasense_nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
